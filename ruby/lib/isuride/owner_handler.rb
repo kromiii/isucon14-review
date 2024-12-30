@@ -111,27 +111,38 @@ module Isuride
     # GET /api/owner/chairs
     get '/chairs' do
       chairs = db.xquery(<<~SQL, @current_owner.id)
-        SELECT id,
-        owner_id,
-        name,
-        access_token,
-        model,
-        is_active,
-        created_at,
-        updated_at,
-        IFNULL(total_distance, 0) AS total_distance,
-        total_distance_updated_at
-        FROM chairs
-        LEFT JOIN (SELECT chair_id,
-                           SUM(IFNULL(distance, 0)) AS total_distance,
-                           MAX(created_at)          AS total_distance_updated_at
-                    FROM (SELECT chair_id,
-                                 created_at,
-                                 ABS(latitude - LAG(latitude) OVER (PARTITION BY chair_id ORDER BY created_at)) +
-                                 ABS(longitude - LAG(longitude) OVER (PARTITION BY chair_id ORDER BY created_at)) AS distance
-                          FROM chair_locations) tmp
-                    GROUP BY chair_id) distance_table ON distance_table.chair_id = chairs.id
-        WHERE owner_id = ?
+        WITH filtered_chairs AS (
+            SELECT id
+            FROM chairs
+            WHERE owner_id = ?
+        )
+        SELECT c.id,
+               c.owner_id,
+               c.name,
+               c.access_token,
+               c.model,
+               c.is_active,
+               c.created_at,
+               c.updated_at,
+               IFNULL(dt.total_distance, 0) AS total_distance,
+               dt.total_distance_updated_at
+        FROM filtered_chairs fc
+        JOIN chairs c ON fc.id = c.id
+        LEFT JOIN (
+            SELECT cl.chair_id,
+                   SUM(cl.distance) AS total_distance,
+                   MAX(cl.created_at) AS total_distance_updated_at
+            FROM (
+                SELECT cl.chair_id,
+                       cl.created_at,
+                       ABS(cl.latitude - LAG(cl.latitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) +
+                       ABS(cl.longitude - LAG(cl.longitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) AS distance
+                FROM chair_locations cl
+                JOIN filtered_chairs fc ON cl.chair_id = fc.id
+            ) cl
+            WHERE cl.distance IS NOT NULL
+            GROUP BY cl.chair_id
+        ) dt ON dt.chair_id = c.id
       SQL
 
       json(

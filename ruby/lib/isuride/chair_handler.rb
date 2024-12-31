@@ -95,12 +95,12 @@ module Isuride
             )
           end
 
-          total_distance += calculate_distance(
-            locations.last.fetch(:latitude),
-            locations.last.fetch(:longitude),
-            req.latitude,
-            req.longitude
-          )
+          # total_distance += calculate_distance(
+          #   locations.last.fetch(:latitude),
+          #   locations.last.fetch(:longitude),
+          #   req.latitude,
+          #   req.longitude
+          # )
         else
           total_distance = chair_coordinate.fetch(:total_distance) + calculate_distance(
             chair_coordinate.fetch(:latitude),

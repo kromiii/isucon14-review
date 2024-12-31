@@ -2,7 +2,7 @@ require 'thread'
 
 Thread.new do
   loop do
-    sleep(3) # 3秒ごとにバルクインサートを実行
+    sleep(1) # 1秒ごとにバルクインサートを実行
 
     items = []
     until INSERT_QUEUE.empty?

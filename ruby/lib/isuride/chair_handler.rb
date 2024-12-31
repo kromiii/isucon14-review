@@ -4,7 +4,7 @@ require 'ulid'
 
 require 'isuride/base_handler'
 
-require 'thread'
+require 'isuride/chair_location_worker'
 
 # キューの初期化
 INSERT_QUEUE = Queue.new
@@ -29,6 +29,11 @@ end
 
 module Isuride
   class ChairHandler < BaseHandler
+    def initialize
+      @location_worker = ChairLocationWorker.new
+      super
+    end
+
     CurrentChair = Data.define(
       :id,
       :owner_id,
@@ -99,7 +104,12 @@ module Isuride
       req = bind_json(PostChairCoordinateRequest)
 
       chair_location_id = ULID.generate
-      INSERT_QUEUE << { id: chair_location_id, chair_id: @current_chair.id, latitude: req.latitude, longitude: req.longitude }
+      @location_worker.enqueue({
+        id: chair_location_id,
+        chair_id: @current_chair.id,
+        latitude: req.latitude,
+        longitude: req.longitude
+      })
 
       response = db_transaction do |tx|
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

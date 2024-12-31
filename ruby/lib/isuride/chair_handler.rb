@@ -84,7 +84,7 @@ module Isuride
         # ない場合は chair_locations のデータを合計して代入する
         chair_coordinate = tx.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', @current_chair.id).first
         if chair_coordinate.nil?
-          locations = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ?', @current_chair.id)
+          locations = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at', @current_chair.id)
           total_distance = 0
           locations.each_cons(2) do |(prev, cur)|
             total_distance += calculate_distance(
@@ -93,14 +93,16 @@ module Isuride
               cur.fetch(:latitude),
               cur.fetch(:longitude)
             )
+
+            last_location = cur
           end
 
-          # total_distance += calculate_distance(
-          #   locations.last.fetch(:latitude),
-          #   locations.last.fetch(:longitude),
-          #   req.latitude,
-          #   req.longitude
-          # )
+          total_distance += calculate_distance(
+            last_location.fetch(:latitude),
+            last_location.fetch(:longitude),
+            req.latitude,
+            req.longitude
+          )
         else
           total_distance = chair_coordinate.fetch(:total_distance) + calculate_distance(
             chair_coordinate.fetch(:latitude),

@@ -77,7 +77,7 @@ module Isuride
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
-        tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+        # tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
         
         # total_distance を計算する
         # すでに chair_coordinates にデータがある場合は、直前のデータとの距離を計算して加算する
@@ -94,6 +94,13 @@ module Isuride
               cur.fetch(:longitude)
             )
           end
+
+          total_distance += calculate_distance(
+            locations.last.fetch(:latitude),
+            locations.last.fetch(:longitude),
+            req.latitude,
+            req.longitude
+          )
         else
           total_distance = chair_coordinate.fetch(:total_distance) + calculate_distance(
             chair_coordinate.fetch(:latitude),
@@ -109,7 +116,8 @@ module Isuride
           @current_chair.id, req.latitude, req.longitude, total_distance
         )
 
-        location = tx.xquery('SELECT * FROM chair_locations WHERE id = ?', chair_location_id).first
+        # location = tx.xquery('SELECT * FROM chair_locations WHERE id = ?', chair_location_id).first
+        coordinate = tx.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', @current_chair.id).first
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first
         unless ride.nil?
@@ -125,7 +133,7 @@ module Isuride
           end
         end
 
-        { recorded_at: time_msec(location.fetch(:created_at)) }
+        { recorded_at: time_msec(coordinate.fetch(:updated_at)) }
       end
 
       json(response)

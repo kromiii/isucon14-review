@@ -110,40 +110,60 @@ module Isuride
 
     # GET /api/owner/chairs
     get '/chairs' do
-      chairs = db.xquery(<<~SQL, @current_owner.id)
-        WITH filtered_chairs AS (
-            SELECT id
-            FROM chairs
-            WHERE owner_id = ?
-        )
-        SELECT c.id,
-                c.owner_id,
-                c.name,
-                c.access_token,
-                c.model,
-                c.is_active,
-                c.created_at,
-                c.updated_at,
-                ifnull(dt.total_distance, 0) AS total_distance,
-                dt.total_distance_updated_at
-        FROM filtered_chairs fc
-        JOIN chairs c ON fc.id = c.id
-        LEFT JOIN (
-            SELECT chair_id,
-                    SUM(distance) AS total_distance,
-                    MAX(created_at) AS total_distance_updated_at
-            FROM (
-                SELECT cl.chair_id,
-                        cl.created_at,
-                        abs(cl.latitude - lag(cl.latitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) +
-                        abs(cl.longitude - lag(cl.longitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) AS distance
-                FROM chair_locations cl
-                JOIN filtered_chairs fc ON cl.chair_id = fc.id
-            ) sub
-            WHERE distance IS NOT NULL
-            GROUP BY chair_id
-        ) dt ON dt.chair_id = c.id
-      SQL
+      chair_coordinate = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ?', @current_owner.id).first
+      if chair_coordinate
+        chairs = db.xquery(<<~SQL, @current_owner.id)
+          SELECT 
+            c.id,
+            c.owner_id,
+            c.name,
+            c.access_token,
+            c.model,
+            c.is_active,
+            c.created_at,
+            c.updated_at,
+            cc.total_distance,
+            cc.update_at AS total_distance_updated_at
+          FROM chairs c
+          JOIN chair_coordinates cc ON c.id = cc.chair_id
+          WHERE c.owner_id = ?
+        SQL
+      else
+        chairs = db.xquery(<<~SQL, @current_owner.id)
+          WITH filtered_chairs AS (
+              SELECT id
+              FROM chairs
+              WHERE owner_id = ?
+          )
+          SELECT c.id,
+                  c.owner_id,
+                  c.name,
+                  c.access_token,
+                  c.model,
+                  c.is_active,
+                  c.created_at,
+                  c.updated_at,
+                  ifnull(dt.total_distance, 0) AS total_distance,
+                  dt.total_distance_updated_at
+          FROM filtered_chairs fc
+          JOIN chairs c ON fc.id = c.id
+          LEFT JOIN (
+              SELECT chair_id,
+                      SUM(distance) AS total_distance,
+                      MAX(created_at) AS total_distance_updated_at
+              FROM (
+                  SELECT cl.chair_id,
+                          cl.created_at,
+                          abs(cl.latitude - lag(cl.latitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) +
+                          abs(cl.longitude - lag(cl.longitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) AS distance
+                  FROM chair_locations cl
+                  JOIN filtered_chairs fc ON cl.chair_id = fc.id
+              ) sub
+              WHERE distance IS NOT NULL
+              GROUP BY chair_id
+          ) dt ON dt.chair_id = c.id
+        SQL
+      end
 
       json(
         chairs: chairs.map { |chair|

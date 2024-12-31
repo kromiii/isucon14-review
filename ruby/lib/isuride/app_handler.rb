@@ -453,35 +453,53 @@ module Isuride
 
     helpers do
       def get_chair_stats(tx, chair_id)
-        rides = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC', chair_id)
+        # 完了したライドとそのステータスを1回のクエリで取得
+        rides_with_statuses = tx.query(<<~SQL)
+          SELECT 
+            r.id as ride_id,
+            r.evaluation,
+            rs.status,
+            rs.created_at as status_created_at
+          FROM rides r
+          JOIN ride_statuses rs ON r.id = rs.ride_id
+          WHERE r.chair_id = ?
+          ORDER BY r.updated_at DESC, rs.created_at ASC
+        SQL
+        [chair_id]
+
+        # ライドIDごとにステータスをグループ化
+        rides_status_map = {}
+        rides_with_statuses.each do |row|
+          ride_id = row.fetch(:ride_id)
+          rides_status_map[ride_id] ||= []
+          rides_status_map[ride_id] << row
+        end
 
         total_rides_count = 0
         total_evaluation = 0.0
-        rides.each do |ride|
-          ride_statuses = tx.xquery('SELECT * FROM ride_statuses WHERE ride_id = ? ORDER BY created_at', ride.fetch(:id))
 
+        rides_status_map.each do |_, statuses|
           arrived_at = nil
           pickup_at = nil
           is_completed = false
-          ride_statuses.each do |status|
+          evaluation = nil
+
+          statuses.each do |status|
             case status.fetch(:status)
             when 'ARRIVED'
-              arrived_at = status.fetch(:created_at)
+              arrived_at = status.fetch(:status_created_at)
             when 'CARRYING'
-              pickup_at = status.fetch(:created_at)
+              pickup_at = status.fetch(:status_created_at)
             when 'COMPLETED'
               is_completed = true
             end
-          end
-          if arrived_at.nil? || pickup_at.nil?
-            next
-          end
-          unless is_completed
-            next
+            evaluation = status.fetch(:evaluation)
           end
 
+          next if arrived_at.nil? || pickup_at.nil? || !is_completed
+
           total_rides_count += 1
-          total_evaluation += ride.fetch(:evaluation)
+          total_evaluation += evaluation
         end
 
         total_evaluation_avg =

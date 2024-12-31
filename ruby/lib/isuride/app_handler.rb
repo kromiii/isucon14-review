@@ -416,11 +416,8 @@ module Isuride
         WHERE
           rides.id IS NULL AND chairs.is_active
       SQL
-      )
 
-      retrieved_at = Time.now
-
-      response = {
+      json(
         chairs: nearby_chairs.map do |chair|
           {
             id: chair.fetch(:id),
@@ -432,60 +429,8 @@ module Isuride
             },
           }
         end,
-        retrieved_at: time_msec(retrieved_at),
-      }
-
-      # response = db_transaction do |tx|
-        # chairs = tx.query('SELECT * FROM chairs')
-
-        # nearby_chairs = chairs.filter_map do |chair|
-        #   unless chair.fetch(:is_active)
-        #     next
-        #   end
-
-        #   rides = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id))
-
-        #   skip = false
-        #   rides.each do |ride|
-        #     # 過去にライドが存在し、かつ、それが完了していない場合はスキップ
-        #     status = get_latest_ride_status(tx, ride.fetch(:id))
-        #     if status != 'COMPLETED'
-        #       skip = true
-        #       break
-        #     end
-        #   end
-        #   if skip
-        #     next
-        #   end
-
-        #   # 最新の位置情報を取得
-        #   chair_location = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id)).first
-        #   if chair_location.nil?
-        #     next
-        #   end
-
-        #   if calculate_distance(latitude, longitude, chair_location.fetch(:latitude), chair_location.fetch(:longitude)) <= distance
-        #     {
-        #       id: chair.fetch(:id),
-        #       name: chair.fetch(:name),
-        #       model: chair.fetch(:model),
-        #       current_coordinate: {
-        #         latitude: chair_location.fetch(:latitude),
-        #         longitude: chair_location.fetch(:longitude),
-        #       },
-        #     }
-        #   end
-        # end
-
-      #   retrieved_at = Time.now
-
-      #   {
-      #     chairs: nearby_chairs,
-      #     retrieved_at: time_msec(retrieved_at),
-      #   }
-      # end
-
-      json(response)
+        retrieved_at: time_msec(Time.now),
+      )
     end
 
     helpers do

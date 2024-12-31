@@ -110,7 +110,7 @@ module Isuride
 
     # GET /api/owner/chairs
     get '/chairs' do
-      chair_coordinate = db.xquery('SELECT * FROM chair_coordinate WHERE chair_id = ?', @current_owner.id).first
+      chair_coordinate = db.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', @current_owner.id).first
       if chair_coordinate
         chairs = db.xquery(<<~SQL, @current_owner.id)
           SELECT 

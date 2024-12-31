@@ -9,6 +9,24 @@ require 'thread'
 # キューの初期化
 INSERT_QUEUE = Queue.new
 
+# バルクインサートを行うスレッドを開始
+Thread.new do
+  loop do
+    sleep 3
+    bulk_insert_data = []
+    until INSERT_QUEUE.empty?
+      bulk_insert_data << INSERT_QUEUE.pop
+    end
+
+    unless bulk_insert_data.empty?
+      values = bulk_insert_data.map { |data| "(#{data[:id]}, #{data[:chair_id]}, #{data[:latitude]}, #{data[:longitude]})" }.join(", ")
+      db_transaction do |tx|
+        tx.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{values}")
+      end
+    end
+  end
+end
+
 module Isuride
   class ChairHandler < BaseHandler
     CurrentChair = Data.define(

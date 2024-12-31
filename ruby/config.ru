@@ -7,7 +7,6 @@ require 'isuride/chair_handler'
 require 'isuride/initialize_handler'
 require 'isuride/internal_handler'
 require 'isuride/owner_handler'
-require 'isuride/bulk_insert_worker'
 
 map '/api/app/' do
   run Isuride::AppHandler

@@ -12,7 +12,7 @@ INSERT_QUEUE = Queue.new
 # バルクインサートを行うスレッドを開始
 Thread.new do
   loop do
-    sleep 3
+    sleep 0.5
     bulk_insert_data = []
     until INSERT_QUEUE.empty?
       bulk_insert_data << INSERT_QUEUE.pop

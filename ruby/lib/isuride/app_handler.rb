@@ -397,56 +397,93 @@ module Isuride
             raise HttpError.new(400, 'distance is invalid')
           end
         end
+      
+      nearby_chairs = tx.xquery(<<~SQL, latitude, longitude, distance)
+        WITH near_chairs AS (
+          SELECT cl.*
+          FROM (
+              SELECT cl.*, row_number() over (partition BY chair_id ORDER BY created_at DESC) AS rn
+              FROM chair_locations cl
+          ) cl
+          WHERE cl.rn = 1 AND abs(cl.latitude - ?) + abs(cl.longitude - ?) < ?
+        )
+        SELECT
+          chairs.*, near_chairs.latitude, near_chairs.longitude
+        FROM 
+          chairs
+        INNER JOIN near_chairs ON chairs.id = near_chairs.chair_id
+        LEFT JOIN rides ON chairs.id = rides.chair_id AND rides.evaluation IS NULL
+        WHERE
+          rides.id IS NULL AND chairs.is_active
+      SQL
+      )
 
-      response = db_transaction do |tx|
-        chairs = tx.query('SELECT * FROM chairs')
+      retrieved_at = Time.now
 
-        nearby_chairs = chairs.filter_map do |chair|
-          unless chair.fetch(:is_active)
-            next
-          end
+      response = {
+        chairs: nearby_chairs.map do |chair|
+          {
+            id: chair.fetch(:id),
+            name: chair.fetch(:name),
+            model: chair.fetch(:model),
+            current_coordinate: {
+              latitude: chair.fetch(:latitude),
+              longitude: chair.fetch(:longitude),
+            },
+          }
+        end,
+        retrieved_at: time_msec(retrieved_at),
+      }
 
-          rides = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id))
+      # response = db_transaction do |tx|
+        # chairs = tx.query('SELECT * FROM chairs')
 
-          skip = false
-          rides.each do |ride|
-            # 過去にライドが存在し、かつ、それが完了していない場合はスキップ
-            status = get_latest_ride_status(tx, ride.fetch(:id))
-            if status != 'COMPLETED'
-              skip = true
-              break
-            end
-          end
-          if skip
-            next
-          end
+        # nearby_chairs = chairs.filter_map do |chair|
+        #   unless chair.fetch(:is_active)
+        #     next
+        #   end
 
-          # 最新の位置情報を取得
-          chair_location = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id)).first
-          if chair_location.nil?
-            next
-          end
+        #   rides = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id))
 
-          if calculate_distance(latitude, longitude, chair_location.fetch(:latitude), chair_location.fetch(:longitude)) <= distance
-            {
-              id: chair.fetch(:id),
-              name: chair.fetch(:name),
-              model: chair.fetch(:model),
-              current_coordinate: {
-                latitude: chair_location.fetch(:latitude),
-                longitude: chair_location.fetch(:longitude),
-              },
-            }
-          end
-        end
+        #   skip = false
+        #   rides.each do |ride|
+        #     # 過去にライドが存在し、かつ、それが完了していない場合はスキップ
+        #     status = get_latest_ride_status(tx, ride.fetch(:id))
+        #     if status != 'COMPLETED'
+        #       skip = true
+        #       break
+        #     end
+        #   end
+        #   if skip
+        #     next
+        #   end
 
-        retrieved_at = Time.now
+        #   # 最新の位置情報を取得
+        #   chair_location = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id)).first
+        #   if chair_location.nil?
+        #     next
+        #   end
 
-        {
-          chairs: nearby_chairs,
-          retrieved_at: time_msec(retrieved_at),
-        }
-      end
+        #   if calculate_distance(latitude, longitude, chair_location.fetch(:latitude), chair_location.fetch(:longitude)) <= distance
+        #     {
+        #       id: chair.fetch(:id),
+        #       name: chair.fetch(:name),
+        #       model: chair.fetch(:model),
+        #       current_coordinate: {
+        #         latitude: chair_location.fetch(:latitude),
+        #         longitude: chair_location.fetch(:longitude),
+        #       },
+        #     }
+        #   end
+        # end
+
+      #   retrieved_at = Time.now
+
+      #   {
+      #     chairs: nearby_chairs,
+      #     retrieved_at: time_msec(retrieved_at),
+      #   }
+      # end
 
       json(response)
     end

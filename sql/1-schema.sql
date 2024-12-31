@@ -136,7 +136,8 @@ CREATE TABLE coupons
   COMMENT 'クーポンテーブル';
 
 CREATE INDEX idx_chairs_access_token ON chairs (access_token);
- 
+CREATE INDEX idx_chairs_owner_id ON chairs (owner_id);
+
 CREATE INDEX idx_users_access_token ON users (access_token);
 CREATE INDEX idx_users_invitation_code ON users (invitation_code);
 

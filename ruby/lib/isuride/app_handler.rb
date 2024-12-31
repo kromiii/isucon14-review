@@ -422,7 +422,7 @@ module Isuride
           end
 
           # 最新の位置情報を取得
-          chair_coordinate = db.xquery('SELECT * FROM chair_coordinate WHERE chair_id = ?', @current_owner.id).first
+          chair_coordinate = db.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', @current_owner.id).first
           if chair_coordinate
             current_latitude = chair_coordinate.fetch(:latitude)
             current_longitude = chair_coordinate.fetch(:longitude)

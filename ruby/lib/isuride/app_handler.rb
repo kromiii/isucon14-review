@@ -422,8 +422,8 @@ module Isuride
           end
 
           # 最新の位置情報を取得
-          chair_coordinate = tx.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', chair.fetch(:id)).first
-          if chair_coordinate.nil?
+          chair_location = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair.fetch(:id)).first
+          if chair_location.nil?
             next
           end
 

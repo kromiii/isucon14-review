@@ -398,7 +398,7 @@ module Isuride
           end
         end
       
-      nearby_chairs = tx.xquery(<<~SQL, latitude, longitude, distance)
+      nearby_chairs = db.xquery(<<~SQL, latitude, longitude, distance)
         WITH near_chairs AS (
           SELECT cl.*
           FROM (

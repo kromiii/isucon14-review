@@ -3,7 +3,7 @@
 module Isuride
   class ChairLocationWorker
     BATCH_SIZE = 1000
-    PROCESS_INTERVAL = 0.1
+    PROCESS_INTERVAL = 3
 
     def initialize
       @queue = Queue.new
@@ -35,17 +35,20 @@ module Isuride
       while batch.size < BATCH_SIZE && !@queue.empty?
         batch << @queue.pop
       end
-
+    
       return if batch.empty?
-
+    
       values = batch.map { |data| 
         "(#{data[:id]}, #{data[:chair_id]}, #{data[:latitude]}, #{data[:longitude]})"
       }.join(", ")
       
       db_transaction do |tx|
-        tx.xquery(
-          "INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{values}"
-        )
+        tx.xquery(<<~SQL)
+          INSERT INTO chair_locations 
+            (id, chair_id, latitude, longitude) 
+          VALUES 
+            #{values}
+        SQL
       end
     end
   end

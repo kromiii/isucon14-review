@@ -78,6 +78,36 @@ module Isuride
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
         tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+        
+        # total_distance を計算する
+        # すでに chair_coordinates にデータがある場合は、直前のデータとの距離を計算して加算する
+        # ない場合は chair_locations のデータを合計して代入する
+        chair_coordinate = tx.xquery('SELECT * FROM chair_coordinates WHERE chair_id = ?', @current_chair.id).first
+        if chair_coordinate.nil?
+          locations = tx.xquery('SELECT * FROM chair_locations WHERE chair_id = ?', @current_chair.id)
+          total_distance = 0
+          locations.each_cons(2) do |(prev, cur)|
+            total_distance += calculate_distance(
+              prev.fetch(:latitude),
+              prev.fetch(:longitude),
+              cur.fetch(:latitude),
+              cur.fetch(:longitude)
+            )
+          end
+        else
+          total_distance = chair_coordinate.fetch(:total_distance) + calculate_distance(
+            chair_coordinate.fetch(:latitude),
+            chair_coordinate.fetch(:longitude),
+            req.latitude,
+            req.longitude
+          )
+        end
+
+        tx.xquery(
+          'INSERT INTO chair_coordinates (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?) ' \
+          'ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), total_distance = VALUES(total_distance)',
+          @current_chair.id, req.latitude, req.longitude, total_distance
+        )
 
         location = tx.xquery('SELECT * FROM chair_locations WHERE id = ?', chair_location_id).first
 

@@ -34,6 +34,10 @@ module Isuride
       end
 
       @current_chair = CurrentChair.new(**chair)
+    end
+
+    def initialize
+      super
       @location_worker = ChairLocationWorker.new
     end
 

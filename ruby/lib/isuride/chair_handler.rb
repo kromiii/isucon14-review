@@ -81,7 +81,7 @@ module Isuride
           chair_id: @current_chair.id,
           latitude: req.latitude,
           longitude: req.longitude,
-          created_at: Time.now,
+          created_at: Time.now.strftime('%Y-%m-%d %H:%M:%S.%6N'),
         }.to_json)
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

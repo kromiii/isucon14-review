@@ -43,6 +43,7 @@ module Isuride
     error HttpError do
       e = env['sinatra.error']
       status e.code
+      logger.error("Error #{e.code}: #{e.message}")
       json(message: e.message)
     end
 

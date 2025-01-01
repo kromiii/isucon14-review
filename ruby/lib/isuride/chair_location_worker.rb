@@ -3,7 +3,7 @@
 module Isuride
   class ChairLocationWorker
     BATCH_SIZE = 1000
-    PROCESS_INTERVAL = 3
+    PROCESS_INTERVAL = 1
 
     def initialize
       @queue = Queue.new

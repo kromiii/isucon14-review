@@ -24,10 +24,11 @@ module Isuride
             keys = redis.keys('chair_location:*')
             values = keys.map do |key|
               data = JSON.parse(redis.get(key), symbolize_names: true)
-              "(#{db.escape(key.split(':').last)}, #{db.escape(data[:chair_id])}, #{db.escape(data[:latitude])}, #{db.escape(data[:longitude])})"
+              [key.split(':').last, data[:chair_id], data[:latitude], data[:longitude]]
             end
             unless values.empty?
-              db.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{values.join(', ')}")
+              placeholders = values.map { |_| "(?, ?, ?, ?)" }.join(", ")
+              db.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{placeholders}", *values.flatten)
               keys.each { |key| redis.del(key) }
             end
           rescue => e

@@ -27,6 +27,7 @@ module Isuride
       chairs.each do |chair|
         chair_id = chair[:id]
         locations = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at', chair_id)
+        next if locations.empty?
         total_distance = 0
         locations.each_cons(2) do |(a, b)|
           total_distance += calculate_distance(a[:latitude], a[:longitude], b[:latitude], b[:longitude])

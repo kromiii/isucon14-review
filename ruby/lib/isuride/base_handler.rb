@@ -26,6 +26,12 @@ module Isuride
     enable :logging
     set :show_exceptions, :after_handler
 
+    configure do
+      log_file = File.new("/home/isucon/isuride.log", "a+")
+      log_file.sync = true
+      use Rack::CommonLogger, log_file
+    end
+
     class HttpError < Sinatra::Error
       attr_reader :code
 

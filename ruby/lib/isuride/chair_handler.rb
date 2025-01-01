@@ -37,6 +37,31 @@ module Isuride
 
     ChairPostChairsRequest = Data.define(:name, :model, :chair_register_token)
 
+    @@chair_locations_queue = Queue.new
+    @@worker_thread = nil
+
+    def self.start_worker
+      @@worker_thread ||= Async do
+        loop do
+          locations = []
+          while locations.size < 1000 && !@@chair_locations_queue.empty?
+            locations << @@chair_locations_queue.pop(true) rescue nil
+          end
+
+          if locations.any?
+            db_transaction do |tx|
+              tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', locations)
+            end
+          end
+
+          sleep 1
+        end
+      end
+    end
+
+    # Initialize worker when server starts
+    start_worker
+
     # POST /api/chair/chairs
     post '/chairs' do
       req = bind_json(ChairPostChairsRequest)
@@ -76,17 +101,10 @@ module Isuride
     post '/coordinate' do
       req = bind_json(PostChairCoordinateRequest)
 
+      # chair_locationsへのinsertは非同期で行う
+      @@chair_locations_queue << [ULID.generate, @current_chair.id, req.latitude, req.longitude]
+
       response = db_transaction do |tx|
-        chair_location_id = ULID.generate
-        Async do
-          @chair_locations ||= []
-          @chair_locations << [ULID.generate, @current_chair.id, req.latitude, req.longitude]
-          
-          if @chair_locations.size >= 1
-            tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', @chair_locations)
-            @chair_locations.clear
-          end
-        end
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first
         unless ride.nil?

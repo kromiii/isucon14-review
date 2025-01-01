@@ -37,8 +37,15 @@ module Isuride
             b.fetch(:longitude)
           )
         end
+        latset_location = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair_id).first
         # 最新の位置情報をlatest_chair_locationsに保存
-        # db.xquery('INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)', chair_id, locations.last[:latitude], locations.last[:longitude], total_distance)
+        db.xquery(
+          'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)',
+          chair_id,
+          latset_location.fetch(:latitude),
+          latset_location.fetch(:longitude),
+          total_distance
+        )
       end
 
       # chair_locationsのデータを非同期でDBに保存するためのスレッド

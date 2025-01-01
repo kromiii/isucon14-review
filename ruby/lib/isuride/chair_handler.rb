@@ -77,9 +77,9 @@ module Isuride
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
-        tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
-
-        location = tx.xquery('SELECT * FROM chair_locations WHERE id = ?', chair_location_id).first
+        Thread.new do
+          tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+        end
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first
         unless ride.nil?
@@ -95,7 +95,7 @@ module Isuride
           end
         end
 
-        { recorded_at: time_msec(location.fetch(:created_at)) }
+        { recorded_at: time_msec(Time.now) }
       end
 
       json(response)

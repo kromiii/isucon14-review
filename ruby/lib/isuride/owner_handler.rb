@@ -125,24 +125,10 @@ module Isuride
                 c.created_at,
                 c.updated_at,
                 ifnull(dt.total_distance, 0) AS total_distance,
-                dt.total_distance_updated_at
+                dt.updated_at AS total_distance_updated_at
         FROM filtered_chairs fc
         JOIN chairs c ON fc.id = c.id
-        LEFT JOIN (
-            SELECT chair_id,
-                    SUM(distance) AS total_distance,
-                    MAX(created_at) AS total_distance_updated_at
-            FROM (
-                SELECT cl.chair_id,
-                        cl.created_at,
-                        abs(cl.latitude - lag(cl.latitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) +
-                        abs(cl.longitude - lag(cl.longitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) AS distance
-                FROM chair_locations cl
-                JOIN filtered_chairs fc ON cl.chair_id = fc.id
-            ) sub
-            WHERE distance IS NOT NULL
-            GROUP BY chair_id
-        ) dt ON dt.chair_id = c.id
+        LEFT JOIN latest_chair_locations dt ON c.id = dt.chair_id
       SQL
 
       json(

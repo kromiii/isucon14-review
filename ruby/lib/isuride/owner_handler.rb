@@ -131,9 +131,9 @@ module Isuride
         LEFT JOIN (
             SELECT chair_id,
                    total_distance,
-                   updated_at AS total_distance_updated_at
-            FROM latest_chair_locations
-            WHERE chair_id = fc.id
+                   cl.updated_at AS total_distance_updated_at
+            FROM latest_chair_locations cl
+            WHERE cl.chair_id = fc.id
         ) dt ON dt.chair_id = c.id
       SQL
 

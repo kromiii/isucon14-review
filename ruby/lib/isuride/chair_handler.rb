@@ -80,7 +80,8 @@ module Isuride
         redis.set("chair_location:#{chair_location_id}", {
           chair_id: @current_chair.id,
           latitude: req.latitude,
-          longitude: req.longitude
+          longitude: req.longitude,
+          created_at: Time.now,
         }.to_json)
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

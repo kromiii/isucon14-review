@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'ulid'
+require 'async'
 
 require 'isuride/base_handler'
 
@@ -77,7 +78,7 @@ module Isuride
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
-        Thread.new do
+        Async do
           tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
         end
 

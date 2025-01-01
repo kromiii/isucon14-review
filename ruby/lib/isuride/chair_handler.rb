@@ -72,32 +72,14 @@ module Isuride
 
     PostChairCoordinateRequest = Data.define(:latitude, :longitude)
 
-    CHAIR_LOCATION_BUFFER = []
-    CHAIR_LOCATION_MUTEX = Mutex.new
-
-    Async do |task|
-      loop do
-        task.sleep 1
-        CHAIR_LOCATION_MUTEX.synchronize do
-          unless CHAIR_LOCATION_BUFFER.empty?
-            db_transaction do |tx|
-              values = CHAIR_LOCATION_BUFFER.map { |loc| "(#{loc.join(', ')})" }.join(', ')
-              tx.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{values}")
-              CHAIR_LOCATION_BUFFER.clear
-            end
-          end
-        end
-      end
-    end
-
     # POST /api/chair/coordinate
     post '/coordinate' do
       req = bind_json(PostChairCoordinateRequest)
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
-        CHAIR_LOCATION_MUTEX.synchronize do
-          CHAIR_LOCATION_BUFFER << [chair_location_id, @current_chair.id, req.latitude, req.longitude]
+        Async do
+          tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
         end
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

@@ -79,7 +79,13 @@ module Isuride
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
         Async do
-          tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+          @chair_locations ||= []
+          @chair_locations << [ULID.generate, @current_chair.id, req.latitude, req.longitude]
+          
+          if @chair_locations.size >= 100
+            tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', @chair_locations)
+            @chair_locations.clear
+          end
         end
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

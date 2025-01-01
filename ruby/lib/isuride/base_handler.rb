@@ -26,6 +26,8 @@ module Isuride
     enable :logging
     set :show_exceptions, :after_handler
 
+    @@chair_locations_queue = Queue.new
+
     configure do
       log_file = File.new("/home/isucon/isuride.log", "a+")
       log_file.sync = true

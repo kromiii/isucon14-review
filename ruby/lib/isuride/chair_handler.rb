@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'ulid'
-require 'async'
 
 require 'isuride/base_handler'
 
@@ -36,31 +35,6 @@ module Isuride
     end
 
     ChairPostChairsRequest = Data.define(:name, :model, :chair_register_token)
-
-    @@chair_locations_queue = Queue.new
-    @@worker_thread = nil
-
-    def self.start_worker
-      @@worker_thread ||= Async do
-        loop do
-          locations = []
-          while locations.size < 1000 && !@@chair_locations_queue.empty?
-            locations << @@chair_locations_queue.pop(true) rescue nil
-          end
-
-          if locations.any?
-            db_transaction do |tx|
-              tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', locations)
-            end
-          end
-
-          sleep 1
-        end
-      end
-    end
-
-    # Initialize worker when server starts
-    start_worker
 
     # POST /api/chair/chairs
     post '/chairs' do

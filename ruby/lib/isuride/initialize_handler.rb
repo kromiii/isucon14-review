@@ -23,7 +23,7 @@ module Isuride
       # chair_idごとに総走行距離を計算し、total_distanceに保存
       # その後、最新のlatitude, longitudeをlatest_chair_locationsに保存
       # total_distanceとlatest_chair_locationsからlatest_chair_locationsを作成
-      chairs = db.query('SELECT * FROM chairs')
+      chairs = db.xquery('SELECT * FROM chairs')
       chairs.each do |chair|
         chair_id = chair.fetch(:id)
         locations = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at', chair_id)

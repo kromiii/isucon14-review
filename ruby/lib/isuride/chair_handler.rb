@@ -82,7 +82,7 @@ module Isuride
           @chair_locations ||= []
           @chair_locations << [ULID.generate, @current_chair.id, req.latitude, req.longitude]
           
-          if @chair_locations.size >= 100
+          if @chair_locations.size >= 10
             tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', @chair_locations)
             @chair_locations.clear
           end

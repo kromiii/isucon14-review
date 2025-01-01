@@ -25,12 +25,17 @@ module Isuride
       # total_distanceとlatest_chair_locationsからlatest_chair_locationsを作成
       chairs = db.query('SELECT * FROM chairs')
       chairs.each do |chair|
-        chair_id = chair[:id]
+        chair_id = chair.fetch(:id)
         locations = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at', chair_id)
         next if locations.empty?
         total_distance = 0
         locations.each_cons(2) do |(a, b)|
-          total_distance += calculate_distance(a[:latitude], a[:longitude], b[:latitude], b[:longitude])
+          total_distance += calculate_distance(
+            a.fetch(:latitude),
+            a.fetch(:longitude),
+            b.fetch(:latitude),
+            b.fetch(:longitude)
+          )
         end
         # 最新の位置情報をlatest_chair_locationsに保存
         # db.xquery('INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)', chair_id, locations.last[:latitude], locations.last[:longitude], total_distance)

@@ -8,11 +8,6 @@ require 'isuride/chair_location_worker'
 
 module Isuride
   class ChairHandler < BaseHandler
-    def initialize
-      @location_worker = ChairLocationWorker.new
-      super
-    end
-
     CurrentChair = Data.define(
       :id,
       :owner_id,
@@ -39,6 +34,7 @@ module Isuride
       end
 
       @current_chair = CurrentChair.new(**chair)
+      @location_worker = ChairLocationWorker.new
     end
 
     ChairPostChairsRequest = Data.define(:name, :model, :chair_register_token)

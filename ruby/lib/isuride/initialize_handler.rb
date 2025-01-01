@@ -21,10 +21,14 @@ module Isuride
       Thread.new do
         loop do
           begin
-            redis.keys('chair_location:*').each do |key|
+            keys = redis.keys('chair_location:*')
+            values = keys.map do |key|
               data = JSON.parse(redis.get(key), symbolize_names: true)
-              db.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', key.split(':').last, data[:chair_id], data[:latitude], data[:longitude])
-              redis.del(key)
+              "(#{db.escape(key.split(':').last)}, #{db.escape(data[:chair_id])}, #{db.escape(data[:latitude])}, #{db.escape(data[:longitude])})"
+            end
+            unless values.empty?
+              db.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES #{values.join(', ')}")
+              keys.each { |key| redis.del(key) }
             end
           rescue => e
             puts "Error processing Redis data: #{e.message}"

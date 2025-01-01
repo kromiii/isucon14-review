@@ -77,7 +77,12 @@ module Isuride
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
-        tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+        # tx.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', chair_location_id, @current_chair.id, req.latitude, req.longitude)
+        redis.set("chair_location:#{chair_location_id}", {
+          chair_id: @current_chair.id,
+          latitude: req.latitude,
+          longitude: req.longitude
+        }.to_json)
 
         location = tx.xquery('SELECT * FROM chair_locations WHERE id = ?', chair_location_id).first
 
@@ -177,6 +182,21 @@ module Isuride
       end
 
       status(204)
+    end
+
+    Thread.new do
+      loop do
+        begin
+          redis.keys('chair_location:*').each do |key|
+            data = JSON.parse(redis.get(key), symbolize_names: true)
+            db.xquery('INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)', key.split(':').last, data[:chair_id], data[:latitude], data[:longitude])
+            redis.del(key)
+          end
+        rescue => e
+          puts "Error processing Redis data: #{e.message}"
+        end
+        sleep 1
+      end
     end
   end
 end

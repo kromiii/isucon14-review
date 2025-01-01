@@ -5,6 +5,7 @@ require 'mysql2-cs-bind'
 require 'sinatra/base'
 require 'sinatra/cookies'
 require 'sinatra/json'
+require 'redis'
 
 # mysql2-cs-bind gem にマイクロ秒のサポートを入れる
 module Mysql2CsBindPatch
@@ -69,6 +70,18 @@ module Isuride
           cast_booleans: true,
           database_timezone: :utc,
           application_timezone: :utc,
+        )
+      end
+
+      def redis
+        Thread.current[:redis] ||= connect_redis
+      end
+  
+      def connect_redis
+        Redis.new(
+          host: ENV.fetch('REDIS_HOST', '127.0.0.1'),
+          port: ENV.fetch('REDIS_PORT', '6379').to_i,
+          password: ENV.fetch('REDIS_PASSWORD', nil)
         )
       end
 

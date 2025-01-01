@@ -34,7 +34,7 @@ module Isuride
           rescue => e
             puts "Error processing Redis data: #{e.message}"
           end
-          sleep 1
+          sleep 0.5
         end
       end
 

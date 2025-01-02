@@ -55,6 +55,33 @@ module Isuride
               placeholders = values.map { |_| "(?, ?, ?, ?, ?)" }.join(", ")
               db.xquery("INSERT INTO chair_locations (id, chair_id, latitude, longitude, created_at) VALUES #{placeholders}", *values.flatten)
               keys.each { |key| redis.del(key) }
+
+              # latest_chair_locationsの更新
+              values.group_by { |v| v[1] }.each do |chair_id, locs|
+                total_distance = db.xquery('SELECT total_distance FROM latest_chair_locations WHERE chair_id = ?', chair_id).first&.fetch(:total_distance) || 0
+                locs.each_cons(2) do |(a, b)|
+                  total_distance += calculate_distance(a[2], a[3], b[2], b[3])
+                end
+                latest_location = locs.last
+                existing_record = db.xquery('SELECT 1 FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
+                if existing_record
+                  db.xquery(
+                    'UPDATE latest_chair_locations SET latitude = ?, longitude = ?, total_distance = ? WHERE chair_id = ?',
+                    latest_location[2],
+                    latest_location[3],
+                    total_distance,
+                    chair_id
+                  )
+                else
+                  db.xquery(
+                    'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)',
+                    chair_id,
+                    latest_location[2],
+                    latest_location[3],
+                    total_distance
+                  )
+                end
+              end
             end
           rescue => e
             puts "Error processing Redis data: #{e.message}"

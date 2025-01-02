@@ -111,21 +111,9 @@ module Isuride
     # GET /api/owner/chairs
     get '/chairs' do
       chairs = db.xquery(<<~SQL, @current_owner.id)
-        WITH filtered_chairs AS (
-            SELECT id
-            FROM chairs
-            WHERE owner_id = ?
-        )
-        SELECT c.id,
-                c.owner_id,
-                c.name,
-                c.access_token,
-                c.model,
-                c.is_active,
-                c.created_at,
-                c.updated_at,
-        FROM filtered_chairs fc
-        JOIN chairs c ON fc.id = c.id
+        SELECT *
+        FROM chairs
+        WHERE owner_id = ?
       SQL
 
       response = chairs.map do |chair|

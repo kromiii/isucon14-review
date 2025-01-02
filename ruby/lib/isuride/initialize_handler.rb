@@ -11,6 +11,8 @@ module Isuride
     post '/api/initialize' do
       req = bind_json(PostInitializeRequest)
 
+      redis.flushall
+
       out, status = Open3.capture2e('../sql/init.sh')
       unless status.success?
         raise HttpError.new(500, "failed to initialize: #{out}")
@@ -38,7 +40,7 @@ module Isuride
           latitude: latset_location.fetch(:latitude),
           longitude: latset_location.fetch(:longitude),
           total_distance: total_distance,
-          total_distance_updated_at: latset_location.fetch(:created_at),
+          total_distance_updated_at: time_msec(latset_location.fetch(:created_at)),
         }.to_json)
       end
 

@@ -84,6 +84,15 @@ module Isuride
           created_at: Time.now.strftime('%Y-%m-%d %H:%M:%S.%6N'),
         }.to_json)
 
+        prev_location = JSON.parse(redis.get("latest_chair_location:#{@current_chair.id}"), symbolize_names: true)
+        total_distance = prev_location.nil? ? 0 : prev_location[:total_distance] + calculate_distance(prev_location[:latitude], prev_location[:longitude], req.latitude, req.longitude)
+
+        redis.set("latest_chair_location:#{@current_chair.id}", {
+          latitude: req.latitude,
+          longitude: req.longitude,
+          total_distance: total_distance,
+        }.to_json)
+
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first
         unless ride.nil?
           status = get_latest_ride_status(tx, ride.fetch(:id))

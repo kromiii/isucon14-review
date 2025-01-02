@@ -58,6 +58,8 @@ module Isuride
                 [data[:latitude], data[:longitude], data[:created_at]]
               end
 
+              redis.del(key)
+
               unless locations.empty?
                 latest_chair_location = db.xquery('SELECT * FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
                 total_distance = latest_chair_location ? latest_chair_location.fetch(:total_distance) : 0
@@ -73,8 +75,6 @@ module Isuride
                 latest_location = locations.last
                 upserts << [chair_id, latest_location[0], latest_location[1], total_distance, latest_location[2]]
               end
-              
-              redis.del(key)
             end
 
             # 一括upsertの実行

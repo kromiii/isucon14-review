@@ -63,13 +63,11 @@ module Isuride
                 # latest_chair_locationsの更新
                 total_distance = db.xquery('SELECT total_distance FROM latest_chair_locations WHERE chair_id = ?', chair_id).first&.fetch(:total_distance) || 0
                 
-                sorted_locs = locations.sort_by { |loc| loc[2] }
-
-                sorted_locs.each_cons(2) do |(a, b)|
+                locations.each_cons(2) do |(a, b)|
                   total_distance += calculate_distance(a[0], a[1], b[0], b[1])
                 end
                 
-                latest_location = sorted_locs.last
+                latest_location = locations.last
                 existing_record = db.xquery('SELECT 1 FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
                 
                 if existing_record

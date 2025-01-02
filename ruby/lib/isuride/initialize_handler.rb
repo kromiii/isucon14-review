@@ -18,6 +18,30 @@ module Isuride
 
       db.xquery("UPDATE settings SET value = ? WHERE name = 'payment_gateway_url'", req.payment_server)
 
+      chairs = db.xquery('SELECT * FROM chairs')
+      chairs.each do |chair|
+        chair_id = chair.fetch(:id)
+        locations = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at', chair_id)
+        next if locations.count.zero?
+        total_distance = 0
+        locations.each_cons(2) do |(a, b)|
+          total_distance += calculate_distance(
+            a.fetch(:latitude),
+            a.fetch(:longitude),
+            b.fetch(:latitude),
+            b.fetch(:longitude)
+          )
+        end
+        latset_location = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair_id).first
+        # 最新の位置情報をlatest_chair_locationsに保存
+        redis.set("latest_chair_location:#{chair_id}", {
+          latitude: latset_location.fetch(:latitude),
+          longitude: latset_location.fetch(:longitude),
+          total_distance: total_distance,
+          total_distance_updated_at: latset_location.fetch(:created_at),
+        }
+      end
+
       Thread.new do
         loop do
           begin

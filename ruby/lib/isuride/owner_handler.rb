@@ -124,43 +124,31 @@ module Isuride
                 c.is_active,
                 c.created_at,
                 c.updated_at,
-                ifnull(dt.total_distance, 0) AS total_distance,
-                dt.total_distance_updated_at
         FROM filtered_chairs fc
         JOIN chairs c ON fc.id = c.id
-        LEFT JOIN (
-            SELECT chair_id,
-                    SUM(distance) AS total_distance,
-                    MAX(created_at) AS total_distance_updated_at
-            FROM (
-                SELECT cl.chair_id,
-                        cl.created_at,
-                        abs(cl.latitude - lag(cl.latitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) +
-                        abs(cl.longitude - lag(cl.longitude) OVER (PARTITION BY cl.chair_id ORDER BY cl.created_at)) AS distance
-                FROM chair_locations cl
-                JOIN filtered_chairs fc ON cl.chair_id = fc.id
-            ) sub
-            WHERE distance IS NOT NULL
-            GROUP BY chair_id
-        ) dt ON dt.chair_id = c.id
       SQL
 
-      json(
-        chairs: chairs.map { |chair|
-          {
-            id: chair.fetch(:id),
-            name: chair.fetch(:name),
-            model: chair.fetch(:model),
-            active: chair.fetch(:is_active),
-            registered_at: time_msec(chair.fetch(:created_at)),
-            total_distance: chair.fetch(:total_distance),
-          }.tap do |c|
-            unless chair.fetch(:total_distance_updated_at).nil?
-              c[:total_distance_updated_at] = time_msec(chair.fetch(:total_distance_updated_at))
-            end
-          end
-        },
-      )
+      response = chairs.map do |chair|
+        latest_chair_location = redis.get("latest_chair_location:#{chair.fetch(:id)}")
+        base_res = {
+          id: chair.fetch(:id),
+          name: chair.fetch(:name),
+          model: chair.fetch(:model),
+          active: chair.fetch(:is_active),
+          registered_at: time_msec(chair.fetch(:created_at)),
+        }
+        if latest_chair_location.nil?
+          base_res.merge(total_distance: 0)
+        else
+          latest_chair_location = JSON.parse(latest_chair_location, symbolize_names: true)
+          base_res.merge(
+            total_distance: latest_chair_location[:total_distance],
+            total_distance_updated_at: latest_chair_location[:total_distance_updated_at],
+          )
+        end
+      end
+
+      json(chairs: response)
     end
 
     helpers do

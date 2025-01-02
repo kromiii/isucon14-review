@@ -92,6 +92,7 @@ module Isuride
           latitude: req.latitude,
           longitude: req.longitude,
           total_distance: total_distance,
+          total_distance_updated_at: time_msec(Time.now),
         }.to_json)
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first

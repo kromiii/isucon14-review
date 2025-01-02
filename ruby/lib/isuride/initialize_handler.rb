@@ -48,8 +48,7 @@ module Isuride
         loop do
           begin
             # バルク更新用の配列を準備
-            updates = []
-            inserts = []
+            upserts = []
 
             chair_keys.each do |key|
               chair_id = key.split(':').last
@@ -71,33 +70,19 @@ module Isuride
                 end
 
                 latest_location = locations.last
-                
-                if latest_chair_location
-                  updates << [latest_location[0], latest_location[1], total_distance, latest_location[2], chair_id]
-                else
-                  inserts << [chair_id, latest_location[0], latest_location[1], total_distance, latest_location[2]]
-                end
+                upserts << [chair_id, latest_location[0], latest_location[1], total_distance, latest_location[2]]
               end
               
               redis.del(key)
             end
 
-            # バルク更新の実行
-            unless updates.empty?
-              db.xquery(
-                'INSERT INTO latest_chair_locations (latitude, longitude, total_distance, updated_at, chair_id) VALUES ' +
-                updates.map { '(?, ?, ?, ?, ?)' }.join(',') +
-                ' ON DUPLICATE KEY UPDATE latitude=VALUES(latitude), longitude=VALUES(longitude), total_distance=VALUES(total_distance), updated_at=VALUES(updated_at)',
-                *updates.flatten
-              )
-            end
-
-            # バルク挿入の実行
-            unless inserts.empty?
+            # 一括upsertの実行
+            unless upserts.empty?
               db.xquery(
                 'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance, updated_at) VALUES ' +
-                inserts.map { '(?, ?, ?, ?, ?)' }.join(','),
-                *inserts.flatten
+                upserts.map { '(?, ?, ?, ?, ?)' }.join(',') +
+                ' ON DUPLICATE KEY UPDATE latitude=VALUES(latitude), longitude=VALUES(longitude), total_distance=VALUES(total_distance), updated_at=VALUES(updated_at)',
+                *upserts.flatten
               )
             end
           rescue => e

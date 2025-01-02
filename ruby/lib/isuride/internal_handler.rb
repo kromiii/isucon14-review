@@ -33,14 +33,14 @@ module Isuride
           # 最も近い椅子を見つける
           closest_chair = chairs.min_by do |chair|
             calculate_distance(
-              chair[:latitude], chair[:longitude],
-              ride[:pickup_latitude], ride[:pickup_longitude]
+              chair.fetch(:latitude), chair.fetch(:longitude),
+              ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
             )
           end
 
           if closest_chair
             db.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
-                     closest_chair[:id], ride[:id])
+                     closest_chair.fetch(:id), ride.fetch(:id))
             # 使用した椅子を除外
             chairs.delete(closest_chair)
           end

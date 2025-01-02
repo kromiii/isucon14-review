@@ -401,7 +401,7 @@ module Isuride
       nearby_chairs = db.xquery(<<~SQL, latitude, longitude, distance)
         WITH near_chairs AS (
           SELECT cl.*
-          FROM latset_chair_locations AS cl
+          FROM latest_chair_locations AS cl
           WHERE abs(cl.latitude - ?) + abs(cl.longitude - ?) < ?
         )
         SELECT

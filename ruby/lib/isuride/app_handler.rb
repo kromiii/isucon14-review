@@ -401,11 +401,8 @@ module Isuride
       nearby_chairs = db.xquery(<<~SQL, latitude, longitude, distance)
         WITH near_chairs AS (
           SELECT cl.*
-          FROM (
-              SELECT cl.*, row_number() over (partition BY chair_id ORDER BY created_at DESC) AS rn
-              FROM chair_locations cl
-          ) cl
-          WHERE cl.rn = 1 AND abs(cl.latitude - ?) + abs(cl.longitude - ?) < ?
+          FROM latset_chair_locations AS cl
+          WHERE abs(cl.latitude - ?) + abs(cl.longitude - ?) < ?
         )
         SELECT
           chairs.*, near_chairs.latitude, near_chairs.longitude

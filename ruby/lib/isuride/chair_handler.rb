@@ -84,7 +84,8 @@ module Isuride
           created_at: Time.now.strftime('%Y-%m-%d %H:%M:%S.%6N'),
         }.to_json)
 
-        prev_location = JSON.parse(redis.get("latest_chair_location:#{@current_chair.id}"), symbolize_names: true)
+        prev_location_json = redis.get("latest_chair_location:#{@current_chair.id}")
+        prev_location = prev_location_json.nil? ? nil : JSON.parse(prev_location_json, symbolize_names: true)
         total_distance = prev_location.nil? ? 0 : prev_location[:total_distance] + calculate_distance(prev_location[:latitude], prev_location[:longitude], req.latitude, req.longitude)
 
         redis.set("latest_chair_location:#{@current_chair.id}", {

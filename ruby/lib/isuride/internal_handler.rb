@@ -15,7 +15,7 @@ module Isuride
         # アクティブな椅子の最新位置情報を取得
         chairs = tx.query(<<~SQL)
           SELECT 
-            chairs.*, 
+            chairs.id,
             COALESCE(l.latitude, 0) as latitude,
             COALESCE(l.longitude, 0) as longitude
           FROM chairs
@@ -29,18 +29,27 @@ module Isuride
           )
         SQL
 
+        # chairsを配列に変換
+        chairs = chairs.map do |chair|
+          {
+            id: chair.fetch(:id),
+            latitude: chair.fetch(:latitude),
+            longitude: chair.fetch(:longitude),
+          }
+        end
+
         rides.each do |ride|
           # 最も近い椅子を見つける
           closest_chair = chairs.min_by do |chair|
             calculate_distance(
-              chair.fetch(:latitude), chair.fetch(:longitude),
+              chair.fetch[:latitude], chair[:longitude],
               ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
             )
           end
 
           if closest_chair
             tx.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
-                     closest_chair.fetch(:id), ride.fetch(:id))
+                     closest_chair[:id], ride.fetch(:id))
             # 使用した椅子を除外
             chairs.delete(closest_chair)
           end

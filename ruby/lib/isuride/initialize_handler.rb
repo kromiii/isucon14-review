@@ -61,8 +61,11 @@ module Isuride
       
               unless locations.empty?                
                 # latest_chair_locationsの更新
-                total_distance = db.xquery('SELECT total_distance FROM latest_chair_locations WHERE chair_id = ?', chair_id).first&.fetch(:total_distance) || 0
+                latest_chair_location = db.xquery('SELECT * FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
+                total_distance = latest_chair_location ? latest_chair_location.fetch(:total_distance) : 0
                 
+                # latest_chair_locationsに保存されている位置情報を locations の先頭に追加
+                locations.unshift([latest_chair_location.fetch(:latitude), latest_chair_location.fetch(:longitude), latest_chair_location.fetch(:updated_at)])
                 locations.each_cons(2) do |(a, b)|
                   total_distance += calculate_distance(a[0], a[1], b[0], b[1])
                 end

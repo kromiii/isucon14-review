@@ -35,11 +35,12 @@ module Isuride
         latset_location = db.xquery('SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1', chair_id).first
         # 最新の位置情報をlatest_chair_locationsに保存
         db.xquery(
-          'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)',
+          'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance, updated_at) VALUES (?, ?, ?, ?)',
           chair_id,
           latset_location.fetch(:latitude),
           latset_location.fetch(:longitude),
-          total_distance
+          total_distance,
+          latset_location.fetch(:created_at)
         )
       end
 
@@ -67,19 +68,21 @@ module Isuride
                 existing_record = db.xquery('SELECT 1 FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
                 if existing_record
                   db.xquery(
-                    'UPDATE latest_chair_locations SET latitude = ?, longitude = ?, total_distance = ? WHERE chair_id = ?',
+                    'UPDATE latest_chair_locations SET latitude = ?, longitude = ?, total_distance = ?, updated_at = ? WHERE chair_id = ?',
                     latest_location[2],
                     latest_location[3],
                     total_distance,
+                    latest_location[4],
                     chair_id
                   )
                 else
                   db.xquery(
-                    'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance) VALUES (?, ?, ?, ?)',
+                    'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance, updated_at) VALUES (?, ?, ?, ?)',
                     chair_id,
                     latest_location[2],
                     latest_location[3],
-                    total_distance
+                    total_distance,
+                    latest_location[4]
                   )
                 end
               end

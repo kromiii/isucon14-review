@@ -62,9 +62,6 @@ module Isuride
                 latest_chair_location = db.xquery('SELECT * FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
                 total_distance = latest_chair_location ? latest_chair_location.fetch(:total_distance) : 0
 
-                # 念の為locationsをcreated_atの昇順でソート
-                locations.sort_by! { |location| location[2] }
-
                 unless latest_chair_location.nil?
                   locations.unshift([latest_chair_location.fetch(:latitude), latest_chair_location.fetch(:longitude), latest_chair_location.fetch(:updated_at)])
                 end

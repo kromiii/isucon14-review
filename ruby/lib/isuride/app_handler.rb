@@ -340,7 +340,7 @@ module Isuride
             created_at: time_msec(ride.fetch(:created_at)),
             updated_at: time_msec(ride.fetch(:updated_at)),
           },
-          retry_after_ms: 30,
+          retry_after_ms: 300,
         }
 
         unless ride.fetch(:chair_id).nil?

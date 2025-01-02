@@ -142,7 +142,7 @@ module Isuride
             },
             status:,
           },
-          retry_after_ms: 30,
+          retry_after_ms: 300,
         }
       end
 

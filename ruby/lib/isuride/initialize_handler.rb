@@ -39,7 +39,7 @@ module Isuride
           longitude: latset_location.fetch(:longitude),
           total_distance: total_distance,
           total_distance_updated_at: latset_location.fetch(:created_at),
-        }
+        }.to_json)
       end
 
       Thread.new do

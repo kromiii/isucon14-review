@@ -5,15 +5,15 @@ require 'isuride/base_handler'
 module Isuride
   class InternalHandler < BaseHandler
     get '/matching' do
-      db.transaction do
+      db_transaction do |tx|
         # 未マッチのライドを待ち時間順で取得
-        rides = db.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 10')
+        rides = tx.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 10')
         unless ride
           halt 204
         end
 
         # アクティブな椅子の最新位置情報を取得
-        chairs = db.query(<<~SQL)
+        chairs = tx.query(<<~SQL)
           SELECT 
             chairs.*, 
             COALESCE(l.latitude, 0) as latitude,
@@ -39,7 +39,7 @@ module Isuride
           end
 
           if closest_chair
-            db.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
+            tx.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
                      closest_chair.fetch(:id), ride.fetch(:id))
             # 使用した椅子を除外
             chairs.delete(closest_chair)

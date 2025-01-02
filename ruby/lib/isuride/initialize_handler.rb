@@ -47,56 +47,58 @@ module Isuride
       Thread.new do
         loop do
           begin
-            # chair_idごとのキーを取得
-            chair_keys = redis.keys('chair_locations:*')
-            
+            # バルク更新用の配列を準備
+            updates = []
+            inserts = []
+
             chair_keys.each do |key|
               chair_id = key.split(':').last
-              # 該当chairの全ての位置情報を取得し、JSONパース
-              # rpushしているので古い順に取り出せるはず
               locations = redis.lrange(key, 0, -1).map do |item|
                 data = JSON.parse(item, symbolize_names: true)
                 [data[:latitude], data[:longitude], data[:created_at]]
               end
-      
-              unless locations.empty?                
-                # latest_chair_locationsの更新
+
+              unless locations.empty?
                 latest_chair_location = db.xquery('SELECT * FROM latest_chair_locations WHERE chair_id = ?', chair_id).first
                 total_distance = latest_chair_location ? latest_chair_location.fetch(:total_distance) : 0
-                
-                # latest_chair_locationsに保存されている位置情報を locations の先頭に追加
+
                 unless latest_chair_location.nil?
                   locations.unshift([latest_chair_location.fetch(:latitude), latest_chair_location.fetch(:longitude), latest_chair_location.fetch(:updated_at)])
                 end
+                
                 locations.each_cons(2) do |(a, b)|
                   total_distance += calculate_distance(a[0], a[1], b[0], b[1])
                 end
-                
+
                 latest_location = locations.last
                 
                 if latest_chair_location
-                  db.xquery(
-                    'UPDATE latest_chair_locations SET latitude = ?, longitude = ?, total_distance = ?, updated_at = ? WHERE chair_id = ?',
-                    latest_location[0],
-                    latest_location[1],
-                    total_distance,
-                    latest_location[2],
-                    chair_id
-                  )
+                  updates << [latest_location[0], latest_location[1], total_distance, latest_location[2], chair_id]
                 else
-                  db.xquery(
-                    'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance, updated_at) VALUES (?, ?, ?, ?, ?)',
-                    chair_id,
-                    latest_location[0],
-                    latest_location[1],
-                    total_distance,
-                    latest_location[2]
-                  )
+                  inserts << [chair_id, latest_location[0], latest_location[1], total_distance, latest_location[2]]
                 end
               end
               
-              # 処理が完了したらリストを削除
               redis.del(key)
+            end
+
+            # バルク更新の実行
+            unless updates.empty?
+              db.xquery(
+                'INSERT INTO latest_chair_locations (latitude, longitude, total_distance, updated_at, chair_id) VALUES ' +
+                updates.map { '(?, ?, ?, ?, ?)' }.join(',') +
+                ' ON DUPLICATE KEY UPDATE latitude=VALUES(latitude), longitude=VALUES(longitude), total_distance=VALUES(total_distance), updated_at=VALUES(updated_at)',
+                *updates.flatten
+              )
+            end
+
+            # バルク挿入の実行
+            unless inserts.empty?
+              db.xquery(
+                'INSERT INTO latest_chair_locations (chair_id, latitude, longitude, total_distance, updated_at) VALUES ' +
+                inserts.map { '(?, ?, ?, ?, ?)' }.join(','),
+                *inserts.flatten
+              )
             end
           rescue => e
             puts "Error processing Redis data: #{e.message}"

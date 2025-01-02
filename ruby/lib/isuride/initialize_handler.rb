@@ -49,6 +49,7 @@ module Isuride
           begin
             # バルク更新用の配列を準備
             upserts = []
+            chair_keys = redis.keys('chair_locations:*')
 
             chair_keys.each do |key|
               chair_id = key.split(':').last
@@ -88,6 +89,8 @@ module Isuride
           rescue => e
             puts "Error processing Redis data: #{e.message}"
           end
+
+          sleep 0.1
         end
       end
 

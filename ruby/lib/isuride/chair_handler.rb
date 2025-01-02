@@ -77,11 +77,12 @@ module Isuride
 
       response = db_transaction do |tx|
         chair_location_id = ULID.generate
+        chair_location_created_at = Time.now
         redis.set("chair_location:#{chair_location_id}", {
           chair_id: @current_chair.id,
           latitude: req.latitude,
           longitude: req.longitude,
-          created_at: Time.now.strftime('%Y-%m-%d %H:%M:%S.%6N'),
+          created_at: chair_location_created_at.strftime('%Y-%m-%d %H:%M:%S.%6N'),
         }.to_json)
 
         ride = tx.xquery('SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC LIMIT 1', @current_chair.id).first
@@ -98,7 +99,7 @@ module Isuride
           end
         end
 
-        { recorded_at: time_msec(Time.now) }
+        { recorded_at: time_msec(chair_location_created_at) }
       end
 
       json(response)

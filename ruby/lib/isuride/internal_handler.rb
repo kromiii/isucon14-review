@@ -8,7 +8,9 @@ module Isuride
       db.transaction do
         # 未マッチのライドを待ち時間順で取得
         rides = db.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 10')
-        return 204 if rides.empty?
+        unless ride
+          halt 204
+        end
 
         # アクティブな椅子の最新位置情報を取得
         chairs = db.query(<<~SQL)
@@ -28,8 +30,6 @@ module Isuride
         SQL
 
         rides.each do |ride|
-          next if chairs.empty?
-          
           # 最も近い椅子を見つける
           closest_chair = chairs.min_by do |chair|
             calculate_distance(

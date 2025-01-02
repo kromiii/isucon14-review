@@ -8,7 +8,7 @@ module Isuride
       db_transaction do |tx|
         # 未マッチのライドを待ち時間順で取得
         rides = tx.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 10')
-        unless ride
+        unless rides
           halt 204
         end
 

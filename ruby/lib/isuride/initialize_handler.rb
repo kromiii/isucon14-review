@@ -53,12 +53,11 @@ module Isuride
 
             chair_keys.each do |key|
               chair_id = key.split(':').last
-              locations = redis.lrange(key, 0, -1).map do |item|
+              locations = []
+              while (item = redis.lpop(key))
                 data = JSON.parse(item, symbolize_names: true)
-                [data[:latitude], data[:longitude], data[:created_at]]
+                locations << [data[:latitude], data[:longitude], data[:created_at]]
               end
-
-              redis.del(key)
 
               unless locations.empty?
                 latest_chair_location = db.xquery('SELECT * FROM latest_chair_locations WHERE chair_id = ?', chair_id).first

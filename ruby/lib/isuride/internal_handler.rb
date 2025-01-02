@@ -42,7 +42,7 @@ module Isuride
           # 最も近い椅子を見つける
           closest_chair = chairs.min_by do |chair|
             calculate_distance(
-              chair.fetch[:latitude], chair[:longitude],
+              chair[:latitude], chair[:longitude],
               ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
             )
           end

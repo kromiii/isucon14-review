@@ -4,25 +4,46 @@ require 'isuride/base_handler'
 
 module Isuride
   class InternalHandler < BaseHandler
-    # このAPIをインスタンス内から一定間隔で叩かせることで、椅子とライドをマッチングさせる
-    # GET /api/internal/matching
     get '/matching' do
-      # MEMO: 一旦最も待たせているリクエストに適当な空いている椅子マッチさせる実装とする。おそらくもっといい方法があるはず…
-      ride = db.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 1').first
-      unless ride
-        halt 204
-      end
+      db.transaction do
+        # 未マッチのライドを待ち時間順で取得
+        rides = db.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 10')
+        return 204 if rides.empty?
 
-      10.times do
-        matched = db.query('SELECT * FROM chairs INNER JOIN (SELECT id FROM chairs WHERE is_active = TRUE ORDER BY RAND() LIMIT 1) AS tmp ON chairs.id = tmp.id LIMIT 1').first
-        unless matched
-          halt 204
-        end
+        # アクティブな椅子の最新位置情報を取得
+        chairs = db.query(<<~SQL)
+          SELECT 
+            chairs.*, 
+            COALESCE(l.latitude, 0) as latitude,
+            COALESCE(l.longitude, 0) as longitude
+          FROM chairs
+          LEFT JOIN latest_chair_locations l ON chairs.id = l.chair_id
+          WHERE chairs.is_active = TRUE
+          AND NOT EXISTS (
+            SELECT 1 FROM rides r
+            INNER JOIN ride_statuses rs ON r.id = rs.ride_id
+            WHERE r.chair_id = chairs.id
+            AND rs.status != 'COMPLETED'
+          )
+        SQL
 
-        empty = db.xquery('SELECT COUNT(*) = 0 FROM (SELECT COUNT(chair_sent_at) = 6 AS completed FROM ride_statuses WHERE ride_id IN (SELECT id FROM rides WHERE chair_id = ?) GROUP BY ride_id) is_completed WHERE completed = FALSE', matched.fetch(:id), as: :array).first[0]
-        if empty > 0
-          db.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', matched.fetch(:id), ride.fetch(:id))
-          break
+        rides.each do |ride|
+          next if chairs.empty?
+          
+          # 最も近い椅子を見つける
+          closest_chair = chairs.min_by do |chair|
+            calculate_distance(
+              chair[:latitude], chair[:longitude],
+              ride[:pickup_latitude], ride[:pickup_longitude]
+            )
+          end
+
+          if closest_chair
+            db.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
+                     closest_chair[:id], ride[:id])
+            # 使用した椅子を除外
+            chairs.delete(closest_chair)
+          end
         end
       end
 

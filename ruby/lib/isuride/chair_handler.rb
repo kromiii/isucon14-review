@@ -76,10 +76,8 @@ module Isuride
       req = bind_json(PostChairCoordinateRequest)
 
       response = db_transaction do |tx|
-        chair_location_id = ULID.generate
         chair_location_created_at = Time.now
-        redis.set("chair_location:#{chair_location_id}", {
-          chair_id: @current_chair.id,
+        redis.rpush("chair_locations:#{@current_chair.id}", {
           latitude: req.latitude,
           longitude: req.longitude,
           created_at: chair_location_created_at.strftime('%Y-%m-%d %H:%M:%S.%6N'),

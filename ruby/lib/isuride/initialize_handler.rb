@@ -90,7 +90,7 @@ module Isuride
             puts "Error processing Redis data: #{e.message}"
           end
 
-          sleep 0.1
+          sleep 0
         end
       end
 

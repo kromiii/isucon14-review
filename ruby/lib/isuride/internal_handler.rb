@@ -18,6 +18,7 @@ module Isuride
               SELECT
                   r.*,
                   rs.status AS ride_status,
+                  rs.created_at AS ride_status_created_at,
                   ROW_NUMBER() OVER (PARTITION BY r.chair_id ORDER BY rs.created_at DESC) AS rn
               FROM rides r
               INNER JOIN ride_statuses rs ON r.id = rs.ride_id AND rs.chair_sent_at IS NOT NULL
@@ -28,7 +29,7 @@ module Isuride
               COALESCE(l.latitude, 0) AS latitude,
               COALESCE(l.longitude, 0) AS longitude
           FROM chairs c
-          LEFT JOIN chair_latest_status cls ON c.id = cls.chair_id AND cls.rn = 1
+          LEFT JOIN chair_latest_status cls ON c.id = cls.chair_id AND cls.rn = 1 AND (cls.ride_status_created_at < NOW() - INTERVAL 1 SECOND)
           LEFT JOIN latest_chair_locations l ON c.id = l.chair_id
           WHERE (cls.ride_status = 'COMPLETED' OR cls.ride_status IS NULL) AND c.is_active
         SQL

@@ -4,25 +4,66 @@ require 'isuride/base_handler'
 
 module Isuride
   class InternalHandler < BaseHandler
-    # このAPIをインスタンス内から一定間隔で叩かせることで、椅子とライドをマッチングさせる
-    # GET /api/internal/matching
     get '/matching' do
-      # MEMO: 一旦最も待たせているリクエストに適当な空いている椅子マッチさせる実装とする。おそらくもっといい方法があるはず…
-      ride = db.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 1').first
-      unless ride
-        halt 204
-      end
-
-      10.times do
-        matched = db.query('SELECT * FROM chairs INNER JOIN (SELECT id FROM chairs WHERE is_active = TRUE ORDER BY RAND() LIMIT 1) AS tmp ON chairs.id = tmp.id LIMIT 1').first
-        unless matched
+      db_transaction do |tx|
+        # 未マッチのライドを待ち時間順で取得
+        rides = tx.query('SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at')
+        unless rides
           halt 204
         end
 
-        empty = db.xquery('SELECT COUNT(*) = 0 FROM (SELECT COUNT(chair_sent_at) = 6 AS completed FROM ride_statuses WHERE ride_id IN (SELECT id FROM rides WHERE chair_id = ?) GROUP BY ride_id) is_completed WHERE completed = FALSE', matched.fetch(:id), as: :array).first[0]
-        if empty > 0
-          db.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', matched.fetch(:id), ride.fetch(:id))
-          break
+        # アクティブな椅子の最新位置情報を取得
+        chairs = tx.query(<<~SQL)
+          WITH chair_latest_status AS (
+              SELECT
+                  r.*,
+                  rs.status AS ride_status,
+                  ROW_NUMBER() OVER (PARTITION BY r.chair_id ORDER BY rs.created_at DESC) AS rn
+              FROM rides r
+              INNER JOIN ride_statuses rs ON r.id = rs.ride_id AND rs.chair_sent_at IS NOT NULL
+          )
+          SELECT
+              c.id,
+              c.is_active,
+              COALESCE(l.latitude, 0) AS latitude,
+              COALESCE(l.longitude, 0) AS longitude
+          FROM chairs c
+          LEFT JOIN chair_latest_status cls ON c.id = cls.chair_id AND cls.rn = 1
+          LEFT JOIN latest_chair_locations l ON c.id = l.chair_id
+          WHERE (cls.ride_status = 'COMPLETED' OR cls.ride_status IS NULL) AND c.is_active
+        SQL
+
+        # chairsを配列に変換
+        chairs = chairs.map do |chair|
+          {
+            id: chair.fetch(:id),
+            latitude: chair.fetch(:latitude),
+            longitude: chair.fetch(:longitude),
+          }
+        end
+
+        rides.each do |ride|
+          # 最も近い椅子を見つける
+          closest_chair = chairs.min_by do |chair|
+            calculate_distance(
+              chair[:latitude], chair[:longitude],
+              ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
+            )
+          end
+
+          if closest_chair
+            # 距離が400以上であればマッチングをスキップする
+            if calculate_distance(
+              closest_chair[:latitude], closest_chair[:longitude],
+              ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
+            ) > 400
+              next
+            end
+            tx.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
+                     closest_chair[:id], ride.fetch(:id))
+            # 使用した椅子を除外
+            chairs.delete(closest_chair)
+          end
         end
       end
 

@@ -30,7 +30,9 @@ module Isuride
           FROM chairs c
           LEFT JOIN chair_latest_status cls ON c.id = cls.chair_id AND cls.rn = 1
           LEFT JOIN latest_chair_locations l ON c.id = l.chair_id
-          WHERE (cls.ride_status = 'COMPLETED' OR cls.ride_status IS NULL) AND c.is_active
+          WHERE (cls.ride_status = 'COMPLETED' OR cls.ride_status IS NULL) 
+            AND c.is_active
+            AND c.updated_at <= NOW() - INTERVAL 3 SECOND
         SQL
 
         # chairsを配列に変換

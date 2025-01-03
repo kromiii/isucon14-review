@@ -14,19 +14,23 @@ module Isuride
 
         # アクティブな椅子の最新位置情報を取得
         chairs = tx.query(<<~SQL)
-          SELECT 
-            chairs.id,
-            COALESCE(l.latitude, 0) as latitude,
-            COALESCE(l.longitude, 0) as longitude
-          FROM chairs
-          LEFT JOIN latest_chair_locations l ON chairs.id = l.chair_id
-          WHERE chairs.is_active = TRUE
-          AND NOT EXISTS (
-            SELECT 1 FROM rides r
-            INNER JOIN ride_statuses rs ON r.id = rs.ride_id
-            WHERE r.chair_id = chairs.id
-            AND rs.status != 'COMPLETED'
+          WITH chair_latest_status AS (
+              SELECT
+                  r.*,
+                  rs.status AS ride_status,
+                  ROW_NUMBER() OVER (PARTITION BY r.chair_id ORDER BY rs.created_at DESC) AS rn
+              FROM rides r
+              INNER JOIN ride_statuses rs ON r.id = rs.ride_id AND rs.chair_sent_at IS NOT NULL
           )
+          SELECT
+              c.id,
+              c.is_active,
+              COALESCE(l.latitude, 0) AS latitude,
+              COALESCE(l.longitude, 0) AS longitude
+          FROM chairs c
+          LEFT JOIN chair_latest_status cls ON c.id = cls.chair_id AND cls.rn = 1
+          LEFT JOIN latest_chair_locations l ON c.id = l.chair_id
+          WHERE (cls.ride_status = 'COMPLETED' OR cls.ride_status IS NULL) AND c.is_active
         SQL
 
         # chairsを配列に変換

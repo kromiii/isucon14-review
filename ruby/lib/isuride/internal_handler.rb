@@ -52,6 +52,13 @@ module Isuride
           end
 
           if closest_chair
+            # 距離が400以上であればマッチングをスキップする
+            if calculate_distance(
+              closest_chair[:latitude], closest_chair[:longitude],
+              ride.fetch(:pickup_latitude), ride.fetch(:pickup_longitude)
+            ) > 400
+              next
+            end
             tx.xquery('UPDATE rides SET chair_id = ? WHERE id = ?', 
                      closest_chair[:id], ride.fetch(:id))
             # 使用した椅子を除外
